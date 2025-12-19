@@ -9,7 +9,9 @@ import os
 
 class Planner:
     def __init__(self, api_key: str):
-        self.client = openai.OpenAI(api_key=api_key)
+        self.client = openai.OpenAI(
+            api_key=api_key,
+            base_url="https://generativelanguage.googleapis.com/v1beta/openai/") # using gemini
 
     def create_plan(self, intent: str) -> ExecutionPlan:
         prompt = f"""
@@ -33,7 +35,7 @@ Output a JSON object with the following structure:
 Ensure the plan is ordered and deterministic. Lock sensitive values like amounts.
 """
         response = self.client.chat.completions.create(
-            model="gpt-4",  # or gpt-3.5-turbo
+            model="gemini-2.5-pro",  # or gpt-3.5-turbo
             messages=[{"role": "user", "content": prompt}],
             temperature=0
         )
