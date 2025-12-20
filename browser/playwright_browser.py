@@ -10,7 +10,7 @@ from typing import Optional
 class PlaywrightBrowser:
     def __init__(self, headless: bool = False):
         self.playwright = sync_playwright().start()
-        self.browser = self.playwright.chromium.launch(headless=headless)
+        self.browser = self.playwright.firefox.launch(headless=headless)
         self.page = self.browser.new_page(viewport=None)
         self.screenshot_dir = "screenshots"
         os.makedirs(self.screenshot_dir, exist_ok=True)

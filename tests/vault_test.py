@@ -11,6 +11,7 @@ import json
 import os
 import sys
 import tempfile
+import time
 from pathlib import Path
 from datetime import datetime
 from typing import Optional
@@ -563,6 +564,161 @@ def test_manager_lock_unlock():
             traceback.print_exc()
             return False
 
+
+def test_core_ttl_expires_quickly():
+    """Create a short-lived secret (OTP-like) and verify it expires."""
+    print_header("Test 12: Core TTL Expiration (OTP 2s)")
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        vault_path = Path(tmpdir) / "test_vault.enc"
+        master_pass = "TestPassword123!@#"
+
+        try:
+            vault = EncryptedVault(vault_path, master_pass)
+            vault.create()
+
+            # Store OTP that expires quickly
+            vault.add_credential(
+                "otp_demo",
+                "user",
+                "123456",
+                {"type": "otp"},
+                ttl_seconds=2,
+            )
+
+            entry_now = vault.get_credential("otp_demo")
+            if not entry_now:
+                print_fail("OTP should be available immediately but was not found")
+                return False
+            print_pass("OTP available immediately after insert")
+
+            print_info("Sleeping 3 seconds to ensure TTL expiry...")
+            time.sleep(3)
+
+            entry_later = vault.get_credential("otp_demo")
+            if entry_later is None:
+                print_pass("OTP expired and is no longer retrievable")
+            else:
+                print_fail("OTP should have expired but was still retrievable")
+                return False
+
+            # Optional: if your core purges on read, it should not be listed anymore
+            services = vault.list_services()
+            if "otp_demo" not in services:
+                print_pass("Expired OTP not present in list_services()")
+            else:
+                print_fail("Expired OTP still present in list_services()")
+                return False
+
+            return True
+
+        except TypeError as e:
+            print_fail(f"Your core.add_credential signature likely doesn't support ttl_seconds yet: {e}")
+            return False
+        except Exception as e:
+            print_fail(f"Exception during TTL test: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
+
+def test_core_ttl_infinite_when_missing():
+    """If ttl_seconds is not provided, credential should behave as infinite TTL."""
+    print_header("Test 13: Core TTL Infinite When Missing")
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        vault_path = Path(tmpdir) / "test_vault.enc"
+        master_pass = "TestPassword123!@#"
+
+        try:
+            vault = EncryptedVault(vault_path, master_pass)
+            vault.create()
+
+            # No ttl_seconds => infinite
+            vault.add_credential(
+                "infinite_demo",
+                "user",
+                "permanent_secret",
+                {"note": "no ttl set"},
+            )
+
+            print_info("Sleeping 2 seconds; infinite credential should still exist...")
+            time.sleep(2)
+
+            entry = vault.get_credential("infinite_demo")
+            if entry and entry["password"] == "permanent_secret":
+                print_pass("Credential persisted without TTL (infinite TTL behavior)")
+                return True
+
+            print_fail("Credential missing after short wait; infinite TTL behavior broken")
+            return False
+
+        except TypeError as e:
+            # This one should still pass even if ttl_seconds not implemented (because it doesn't use ttl_seconds),
+            # but keeping the handler here for clarity.
+            print_fail(f"Unexpected TypeError: {e}")
+            return False
+        except Exception as e:
+            print_fail(f"Exception during infinite TTL test: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
+
+def test_manager_ttl_passthrough_expires():
+    """Verify VaultManager passes ttl_seconds into core and expiry is enforced via manager.get_credential."""
+    print_header("Test 14: Manager TTL Passthrough (Expires)")
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        vault_path = Path(tmpdir) / "test_vault.enc"
+        master_pass = "TestPassword123!@#"
+
+        try:
+            # Use core directly to control the temp vault path
+            vault = EncryptedVault(vault_path, master_pass)
+            vault.create()
+
+            manager = VaultManager()
+            manager._vault = vault  # inject test vault
+
+            manager.add_credential(
+                "temp_token",
+                "user",
+                "token_value",
+                {"note": "short ttl"},
+                ttl_seconds=1,
+            )
+            print_pass("Added TTL credential via manager")
+
+            # Immediately should work
+            entry_now = manager.get_credential("temp_token")
+            if entry_now:
+                print_pass("Manager retrieved credential before expiry")
+            else:
+                print_fail("Manager could not retrieve credential before expiry")
+                return False
+
+            print_info("Sleeping 2 seconds to ensure expiry...")
+            time.sleep(2)
+
+            entry_later = manager.get_credential("temp_token")
+            if entry_later is None:
+                print_pass("Manager returned None after expiry (TTL enforced)")
+                return True
+
+            print_fail("Manager still returned credential after expiry")
+            return False
+
+        except TypeError as e:
+            print_fail(f"Your manager.add_credential likely doesn't accept ttl_seconds yet: {e}")
+            return False
+        except Exception as e:
+            print_fail(f"Exception during manager TTL test: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
+
 # ============ MAIN ============
 
 def run_all_tests():
@@ -587,6 +743,10 @@ def run_all_tests():
         test_manager_add_credential,
         test_manager_get_credential,
         test_manager_lock_unlock,
+        test_core_ttl_expires_quickly,
+        test_core_ttl_infinite_when_missing,
+        test_manager_ttl_passthrough_expires,
+
     ]
     
     results = []
