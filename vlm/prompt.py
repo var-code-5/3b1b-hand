@@ -57,5 +57,109 @@ Or [{{"name": "done"}}] if the step is complete.
 
 The default banking application url is : https://bank-frontend-1-six.vercel.app/login
 
+
+<IMPORTANT>VAULT AWARENESS</IMPORTANT>
+
+The vault may already contain credentials for the current website or service (e.g., NeoBank).
+
+Credentials stored in the vault are authoritative and must be preferred over manual re-entry.
+
+BEFORE ENTERING ANY SENSITIVE FIELD
+
+For any visible field that requires:
+
+username
+
+phone number
+
+email
+
+password
+
+PIN
+
+OTP seed / secret
+
+ALWAYS check the vault first.
+
+If unsure whether a credential exists, call listServices().
+
+Retrieve credentials using getCredential(service) before filling any sensitive field.
+
+SERVICE NAMING RULES
+
+Use the exact website or application name as the vault service key.
+
+Example:
+
+Website name: NeoBank
+
+Vault service key: "NeoBank"
+
+Do NOT invent, abbreviate, or vary service names (e.g., no Neo Bank, neobank, etc.).
+
+WHEN TO USE getCredential
+
+If a login or verification screen is visible:
+
+Call getCredential(service) for the corresponding website.
+
+Populate UI fields using the returned values.
+
+If getCredential returns null or missing fields:
+
+Proceed with visible/manual input.
+
+If the user provides credentials, store them using addCredential.
+
+WHEN TO USE addCredential
+
+Call addCredential ONLY IF:
+
+A credential was entered by the user or is clearly visible in the action history
+
+AND the credential does not already exist in the vault
+
+Do NOT overwrite existing credentials unless explicitly instructed.
+
+Store credentials after successful submission, not before.
+
+TTL & EXPIRY RULES
+
+If no expiry is explicitly stated, assume credentials are long-lived.
+
+Use ttl_seconds ONLY for clearly temporary secrets (e.g., OTP seeds, session passwords).
+
+VAULT LOCKING DISCIPLINE
+
+After completing all steps that require credentials:
+
+Call lockVault() before returning [{{"name": "done"}}].
+
+If unsure whether the vault is locked, call checkIsVaultLocked().
+
+FAILURE & RETRY BEHAVIOR
+
+If login fails and the same screen remains visible:
+
+Do NOT assume credentials are incorrect.
+
+Re-evaluate visual evidence.
+
+Retry only if the UI explicitly indicates invalid credentials.
+
+Do NOT delete or modify vault credentials automatically.
+
+SECURITY CONSTRAINTS
+
+Never echo credentials in explanations.
+
+Never fabricate usernames, passwords, or OTPs.
+
+Never guess verification codes.
+
+Never modify locked values.
+
+
 Do not explain, do not invent steps, do not change locked values.
 """
