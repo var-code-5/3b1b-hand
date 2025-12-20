@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": 1,
+      "service": "openai_api",
+      "username": "user@example.com",
+      "password": "sk-...",
+      "metadata": {
+        "purpose": "gpt-4",
+        "...": "..."
+      },
+      "created_at": "2025-12-20T12:34:56.789012",
+      "updated_at": "2025-12-20T12:34:56.789012"
+    },
+    {
+      "id": 2,
+      "service": "github_token",
+      "username": "octocat",
+      "password": "ghp_...",
+      "metadata": {},
+      "created_at": "...",
+      "updated_at": "..."
+    }
+  ],
+  "metadata": {
+    "created": "2025-12-20T12:34:56.789012",
+    "last_modified": "2025-12-20T12:40:01.123456"
+  }
+}
