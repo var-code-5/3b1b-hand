@@ -23,6 +23,27 @@ class NavigateAction(BaseModel):
 class DoneAction(BaseModel):
     pass
 
+class AddCredentialAction(BaseModel):
+    service: str
+    username: str
+    password: str
+    metadata: Optional[dict] = None
+
+class GetCredentialAction(BaseModel):
+    service: str
+
+class ListServicesAction(BaseModel):
+    pass
+
+class DeleteCredentialAction(BaseModel):
+    service: str
+
+class LockVaultAction(BaseModel):
+    pass
+
+class CheckIsLockedAction(BaseModel):
+    pass
+
 # Union of all actions
 from typing import Union
 Action = Union[ClickByTextAction, FillByLabelAction, ScrollAction, WaitAction, NavigateAction, DoneAction]
