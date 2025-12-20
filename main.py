@@ -8,6 +8,7 @@ from browser.playwright_browser import PlaywrightBrowser
 from vlm.qwen_client import QwenClient
 import os
 from dotenv import load_dotenv
+from vault.manager import VaultManager,VaultError
 
 load_dotenv()
 
@@ -24,6 +25,8 @@ def main():
     planner = Planner(args.openai_key)
     browser = PlaywrightBrowser(headless=args.headless)
     vlm = QwenClient(args.qwen_key,base_url=args.qwen_url)
+
+    vault_manager = VaultManager()
 
     try:
         if not vault_manager.initialize(master_password='TestPassword123!@#'):

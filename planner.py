@@ -52,6 +52,9 @@ Return ONLY valid JSON.
 No markdown.
 No explanation.
 No code fences.
+
+You are a JSON generator.
+Return ONLY valid JSON no extra text.
 """
         response = self.client.chat.completions.create(
             model="gemini-2.5-flash",  # or gpt-3.5-turbo
