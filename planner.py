@@ -33,13 +33,20 @@ Output a JSON object with the following structure:
 }}
 
 Ensure the plan is ordered and deterministic. Lock sensitive values like amounts.
+You are a JSON generator.
+Return ONLY valid JSON.
+No markdown.
+No explanation.
+No code fences.
 """
         response = self.client.chat.completions.create(
-            model="gemini-2.5-pro",  # or gpt-3.5-turbo
+            model="gemini-2.5-flash",  # or gpt-3.5-turbo
             messages=[{"role": "user", "content": prompt}],
             temperature=0
         )
+        print(response)
         plan_json = response.choices[0].message.content
+        print(plan_json)
         try:
             plan_data = json.loads(plan_json)
             return ExecutionPlan(**plan_data)

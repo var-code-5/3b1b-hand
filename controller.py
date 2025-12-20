@@ -29,8 +29,9 @@ class Controller:
     def execute_step(self, step):
         retries = 0
         while retries < 3:
-            screenshot_path = f"screenshot_step_{self.current_step_index}_{retries}.png"
-            self.browser.take_screenshot(screenshot_path)
+            screenshot_filename = f"screenshot_step_{self.current_step_index}_{retries}.png"
+            self.browser.take_screenshot(screenshot_filename)
+            screenshot_path = os.path.join("screenshots", screenshot_filename)
             history_str = "; ".join(self.history[-5:])  # last 5 actions
             action_data = self.vlm.call_vlm(screenshot_path, step.description, history_str)
             action = self.parse_action(action_data)
@@ -38,7 +39,7 @@ class Controller:
                 self.execute_action(action)
                 self.history.append(f"{action_data['name']} with {action_data.get('arguments', {})}")
                 with open(os.path.join(self.log_dir, f"step_{self.current_step_index}.log"), "a") as f:
-                    f.write(f"Screenshot: {screenshot_path}\nAction: {action_data}\n")
+                    f.write(f"Screenshot: {screenshot_filename}\nAction: {action_data}\n")
                 if isinstance(action, DoneAction):
                     break
                 # Continue to next iteration for the same step

@@ -7,6 +7,9 @@ from controller import Controller
 from browser.playwright_browser import PlaywrightBrowser
 from vlm.qwen_client import QwenClient
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 def main():
     parser = argparse.ArgumentParser(description="Vision-based Browser Automation Agent")

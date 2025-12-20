@@ -33,4 +33,5 @@ class QwenClient:
         response = requests.post(f"{self.base_url}/chat/completions", json=payload, headers=headers)
         result = response.json()
         content = result["choices"][0]["message"]["content"]
+        print(content)
         return json.loads(content)

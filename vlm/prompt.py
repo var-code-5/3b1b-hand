@@ -15,5 +15,7 @@ Return ONLY a JSON function call like:
 
 Or {{"name": "done"}} if complete.
 
+The default banking application url is : https://bank-frontend-1-six.vercel.app/
+
 Do not explain, do not invent steps, do not change locked values.
 """
