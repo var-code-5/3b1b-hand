@@ -28,22 +28,40 @@ class Controller:
 
     def execute_step(self, step):
         retries = 0
+        print("Current step:",step)
         while retries < 3:
             screenshot_filename = f"screenshot_step_{self.current_step_index}_{retries}.png"
             self.browser.take_screenshot(screenshot_filename)
             screenshot_path = os.path.join("screenshots", screenshot_filename)
+            
             history_str = "; ".join(self.history[-5:])  # last 5 actions
-            action_data = self.vlm.call_vlm(screenshot_path, step.description, history_str)
-            action = self.parse_action(action_data)
-            if self.validate_action(action, step):
-                self.execute_action(action)
-                self.history.append(f"{action_data['name']} with {action_data.get('arguments', {})}")
-                with open(os.path.join(self.log_dir, f"step_{self.current_step_index}.log"), "a") as f:
-                    f.write(f"Screenshot: {screenshot_filename}\nAction: {action_data}\n")
-                if isinstance(action, DoneAction):
+            
+            actions_data = self.vlm.call_vlm(screenshot_path, step.description, history_str)
+            actions = self.parse_actions(actions_data)
+            
+            if self.validate_actions(actions, step):
+                all_actions_executed = True
+                for action, action_data in zip(actions, actions_data):
+                    try:
+                        self.execute_action(action)
+                        self.history.append(f"{action_data['name']} with {action_data.get('arguments', {})}")
+                        with open(os.path.join(self.log_dir, f"step_{self.current_step_index}.log"), "a") as f:
+                            f.write(f"Screenshot: {screenshot_filename}\nAction: {action_data}\n")
+                    except Exception as e:
+                        print(f"Error executing action {action_data}: {e}")
+                        all_actions_executed = False
+                        break
+                
+                # Check if last action is done
+                if actions and isinstance(actions[-1], DoneAction):
                     break
-                # Continue to next iteration for the same step
+                
+                # If all actions executed successfully, move to next step
+                if all_actions_executed:
+                    break
+            
             retries += 1
+        
         if retries >= 3:
             raise Exception(f"Failed to execute step after 3 retries: {step.description}")
 
@@ -65,6 +83,10 @@ class Controller:
         else:
             raise ValueError(f"Unknown action: {name}")
 
+    def parse_actions(self, actions_data: list[dict]) -> list[Action]:
+        """Parse a list of action dictionaries into Action objects."""
+        return [self.parse_action(action_data) for action_data in actions_data]
+
     def validate_action(self, action: Action, step) -> bool:
         if isinstance(action, ClickAction):
             if not validate_coordinates(action.x, action.y):
@@ -73,6 +95,17 @@ class Controller:
             if not validate_locked_values(action, step):
                 return False
         return validate_action_for_step(action, step)
+
+    def validate_actions(self, actions: list[Action], step) -> bool:
+        """Validate all actions in the list."""
+        if not actions:
+            return False
+        
+        for action in actions:
+            if not self.validate_action(action, step):
+                return False
+        
+        return True
 
     def execute_action(self, action: Action):
         if isinstance(action, ClickAction):

@@ -13,7 +13,7 @@ class QwenClient:
         self.api_key = api_key
         self.base_url = base_url
 
-    def call_vlm(self, image_path: str, step_description: str, history: str) -> dict:
+    def call_vlm(self, image_path: str, step_description: str, history: str) -> list[dict]:
         with open(image_path, "rb") as img_file:
             img_data = base64.b64encode(img_file.read()).decode()
 
@@ -32,6 +32,16 @@ class QwenClient:
         headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
         response = requests.post(f"{self.base_url}/chat/completions", json=payload, headers=headers)
         result = response.json()
+        print(result)
         content = result["choices"][0]["message"]["content"]
         print(content)
-        return json.loads(content)
+        actions = json.loads(content)
+        
+        # Ensure we always return a list
+        if isinstance(actions, dict):
+            # If single action dict is returned, wrap it in a list
+            return [actions]
+        elif isinstance(actions, list):
+            return actions
+        else:
+            raise ValueError(f"Unexpected response format: {actions}")

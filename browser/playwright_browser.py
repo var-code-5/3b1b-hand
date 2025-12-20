@@ -10,15 +10,19 @@ class PlaywrightBrowser:
     def __init__(self, headless: bool = False):
         self.playwright = sync_playwright().start()
         self.browser = self.playwright.chromium.launch(headless=headless)
-        self.page = self.browser.new_page()
+        self.page = self.browser.new_page(viewport=None)
         self.screenshot_dir = "screenshots"
         os.makedirs(self.screenshot_dir, exist_ok=True)
 
     def navigate(self, url: str):
-        self.page.goto(url)
+        self.page.goto(url, wait_until="networkidle")
 
-    def click(self, x: int, y: int):
-        self.page.mouse.click(x, y)
+    def click(self, x: int, y: int, wait_for_navigation: bool = False):
+        if wait_for_navigation:
+            with self.page.expect_navigation(wait_until="networkidle"):
+                self.page.mouse.click(x, y)
+        else:
+            self.page.mouse.click(x, y)
 
     def type_text(self, text: str):
         self.page.keyboard.type(text)

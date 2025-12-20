@@ -10,12 +10,19 @@ Action history: {history}
 
 Allowed actions: click(x, y), type_text(text), scroll(delta), wait(ms), navigate(url), done()
 
-Return ONLY a JSON function call like:
-{{"name": "click", "arguments": {{"x": 512, "y": 384}}}}
+Return ONLY a JSON array of actions. For a single action:
+[{{"name": "click", "arguments": {{"x": 512, "y": 384}}}}]
 
-Or {{"name": "done"}} if complete.
+Or multiple actions to complete the step:
+[
+  {{"name": "click", "arguments": {{"x": 512, "y": 384}}}},
+  {{"name": "type_text", "arguments": {{"text": "example"}}}},
+  {{"name": "wait", "arguments": {{"ms": 1000}}}}
+]
 
-The default banking application url is : https://bank-frontend-1-six.vercel.app/
+Or [{{"name": "done"}}] if the step is complete.
+
+The default banking application url is : https://bank-frontend-1-six.vercel.app/login
 
 Do not explain, do not invent steps, do not change locked values.
 """

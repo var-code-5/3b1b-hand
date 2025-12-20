@@ -2,7 +2,7 @@
 # Pydantic models for allowed browser actions
 
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 
 class ClickAction(BaseModel):
     x: int
@@ -26,3 +26,7 @@ class DoneAction(BaseModel):
 # Union of all actions
 from typing import Union
 Action = Union[ClickAction, TypeTextAction, ScrollAction, WaitAction, NavigateAction, DoneAction]
+
+class ActionList(BaseModel):
+    """Container for a list of actions to be executed for a step."""
+    actions: List[Action]
