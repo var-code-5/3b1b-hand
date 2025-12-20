@@ -4,11 +4,11 @@
 from pydantic import BaseModel
 from typing import Optional, List
 
-class ClickAction(BaseModel):
-    x: int
-    y: int
+class ClickByTextAction(BaseModel):
+    text: str
 
-class TypeTextAction(BaseModel):
+class FillByLabelAction(BaseModel):
+    label: str
     text: str
 
 class ScrollAction(BaseModel):
@@ -25,7 +25,7 @@ class DoneAction(BaseModel):
 
 # Union of all actions
 from typing import Union
-Action = Union[ClickAction, TypeTextAction, ScrollAction, WaitAction, NavigateAction, DoneAction]
+Action = Union[ClickByTextAction, FillByLabelAction, ScrollAction, WaitAction, NavigateAction, DoneAction]
 
 class ActionList(BaseModel):
     """Container for a list of actions to be executed for a step."""

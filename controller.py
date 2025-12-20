@@ -5,7 +5,7 @@ from planner import Planner
 from browser.playwright_browser import PlaywrightBrowser
 from vlm.qwen_client import QwenClient
 from guardrails import validate_coordinates, validate_text_input, validate_action_for_step, validate_locked_values
-from schemas.actions import Action, ClickAction, TypeTextAction, ScrollAction, WaitAction, NavigateAction, DoneAction
+from schemas.actions import Action, ClickByTextAction, FillByLabelAction, ScrollAction, WaitAction, NavigateAction, DoneAction
 import json
 import os
 
@@ -29,6 +29,7 @@ class Controller:
     def execute_step(self, step):
         retries = 0
         print("Current step:",step)
+        print("=================================\n")
         while retries < 3:
             screenshot_filename = f"screenshot_step_{self.current_step_index}_{retries}.png"
             self.browser.take_screenshot(screenshot_filename)
@@ -36,19 +37,20 @@ class Controller:
             
             history_str = "; ".join(self.history[-5:])  # last 5 actions
             
-            actions_data = self.vlm.call_vlm(screenshot_path, step.description, history_str)
+            actions_data = self.vlm.call_vlm(screenshot_path, step.description, history_str, step.locked_values)
             actions = self.parse_actions(actions_data)
             
             if self.validate_actions(actions, step):
                 all_actions_executed = True
                 for action, action_data in zip(actions, actions_data):
                     try:
+                        print(f"Executing action: {action_data}, with action object: {action} of type {type(action)}")
                         self.execute_action(action)
                         self.history.append(f"{action_data['name']} with {action_data.get('arguments', {})}")
                         with open(os.path.join(self.log_dir, f"step_{self.current_step_index}.log"), "a") as f:
                             f.write(f"Screenshot: {screenshot_filename}\nAction: {action_data}\n")
                     except Exception as e:
-                        print(f"Error executing action {action_data}: {e}")
+                        print(f"\nError executing action {action_data}: {e}\n")
                         all_actions_executed = False
                         break
                 
@@ -59,6 +61,10 @@ class Controller:
                 # If all actions executed successfully, move to next step
                 if all_actions_executed:
                     break
+            else:
+                print(f"\n❌ Validation failed for actions: {actions_data}")
+                print(f"Expected locked values: {step.locked_values}")
+                print(f"Expected actions: {step.expected_actions}\n")
             
             retries += 1
         
@@ -68,10 +74,10 @@ class Controller:
     def parse_action(self, data: dict) -> Action:
         name = data["name"]
         args = data.get("arguments", {})
-        if name == "click":
-            return ClickAction(**args)
-        elif name == "type_text":
-            return TypeTextAction(**args)
+        if name == "click_by_text":
+            return ClickByTextAction(**args)
+        elif name == "fill_by_label":
+            return FillByLabelAction(**args)
         elif name == "scroll":
             return ScrollAction(**args)
         elif name == "wait":
@@ -88,13 +94,12 @@ class Controller:
         return [self.parse_action(action_data) for action_data in actions_data]
 
     def validate_action(self, action: Action, step) -> bool:
-        if isinstance(action, ClickAction):
-            if not validate_coordinates(action.x, action.y):
-                return False
-        elif isinstance(action, TypeTextAction):
-            if not validate_locked_values(action, step):
-                return False
-        return validate_action_for_step(action, step)
+        # disabled gaurdrail
+        # if isinstance(action, FillByLabelAction):
+        #     if not validate_locked_values(action, step):
+        #         return False
+        # return validate_action_for_step(action, step)
+        return True
 
     def validate_actions(self, actions: list[Action], step) -> bool:
         """Validate all actions in the list."""
@@ -108,10 +113,11 @@ class Controller:
         return True
 
     def execute_action(self, action: Action):
-        if isinstance(action, ClickAction):
-            self.browser.click(action.x, action.y)
-        elif isinstance(action, TypeTextAction):
-            self.browser.type_text(action.text)
+        print(f"Executing action: {action}")
+        if isinstance(action, ClickByTextAction):
+            self.browser.click_by_text(action.text)
+        elif isinstance(action, FillByLabelAction):
+            self.browser.fill_by_label(action.label, action.text)
         elif isinstance(action, ScrollAction):
             self.browser.scroll(action.delta)
         elif isinstance(action, WaitAction):

@@ -8,15 +8,17 @@ Current step: {step_description}
 
 Action history: {history}
 
-Allowed actions: click(x, y), type_text(text), scroll(delta), wait(ms), navigate(url), done()
+{locked_values_instruction}
+
+Allowed actions: click_by_text(text), fill_by_label(label, text), scroll(delta), wait(ms), navigate(url), done()
 
 Return ONLY a JSON array of actions. For a single action:
-[{{"name": "click", "arguments": {{"x": 512, "y": 384}}}}]
+[{{"name": "click_by_text", "arguments": {{"text": "Login"}}}}]
 
 Or multiple actions to complete the step:
 [
-  {{"name": "click", "arguments": {{"x": 512, "y": 384}}}},
-  {{"name": "type_text", "arguments": {{"text": "example"}}}},
+  {{"name": "click_by_text", "arguments": {{"text": "Login"}}}},
+  {{"name": "fill_by_label", "arguments": {{"label": "Username", "text": "example"}}}},
   {{"name": "wait", "arguments": {{"ms": 1000}}}}
 ]
 

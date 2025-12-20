@@ -16,9 +16,7 @@ class Planner:
     def create_plan(self, intent: str) -> ExecutionPlan:
         prompt = f"""
 Convert the following user intent into a structured execution plan for browser automation.
-vision-based browser automation agent. Analyze the screenshot and current step.
 
-Current step: 
 Intent: {intent}
 
 Output a JSON object with the following structure:
@@ -26,8 +24,24 @@ Output a JSON object with the following structure:
   "steps": [
     {{
       "description": "Step description",
-      "expected_actions": ["click", "type_text", "scroll", "wait", "navigate"],
-      "locked_values": {{"key": "value"}}  // e.g., amount, recipient
+      "expected_actions": ["click_by_text", "fill_by_label", "scroll", "wait", "navigate", "done"],
+      "locked_values": {{"text": "value", "url": "value", "label": "value"}}
+    }}
+  ]
+}}
+
+Example for login with username "8770762787":
+{{
+  "steps": [
+    {{
+      "description": "Navigate to login page",
+      "expected_actions": ["navigate"],
+      "locked_values": {{"url": "https://bank-frontend-1-six.vercel.app/login"}}
+    }},
+    {{
+      "description": "Enter username",
+      "expected_actions": ["fill_by_label"],
+      "locked_values": {{"text": "8770762787"}}
     }}
   ]
 }}
@@ -44,9 +58,8 @@ No code fences.
             messages=[{"role": "user", "content": prompt}],
             temperature=0
         )
-        print(response)
         plan_json = response.choices[0].message.content
-        print(plan_json)
+        print("Generated Plan JSON:", plan_json)
         try:
             plan_data = json.loads(plan_json)
             return ExecutionPlan(**plan_data)

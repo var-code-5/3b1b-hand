@@ -1,7 +1,7 @@
 # guardrails.py
 # Validation functions for safety
 
-from schemas.actions import Action, ClickAction, TypeTextAction
+from schemas.actions import Action, FillByLabelAction
 from schemas.plan import PlanStep
 import re
 
@@ -21,8 +21,11 @@ def validate_action_for_step(action: Action, step: PlanStep) -> bool:
 
 def validate_locked_values(action: Action, step: PlanStep) -> bool:
     """Ensure VLM doesn't change locked values like amount."""
-    if isinstance(action, TypeTextAction):
+    if isinstance(action, FillByLabelAction):
+        # Check if any locked value should be used in this action
         for key, value in step.locked_values.items():
-            if value in action.text and action.text != value:
+            # If the locked key is 'text' or matches a field name, enforce exact match
+            if key == 'text' and action.text != value:
+                print(f"❌ Locked value violation: expected '{value}', got '{action.text}'")
                 return False
     return True
