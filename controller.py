@@ -84,6 +84,18 @@ class Controller:
             return WaitAction(**args)
         elif name == "navigate":
             return NavigateAction(**args)
+        elif name == "addCredential":
+            return AddCredentialAction(**args)
+        elif name == "getCredential":
+            return GetCredentialAction(**args)
+        elif name == "listServices":
+            return ListServicesAction()
+        elif name == "deleteCredential":
+            return DeleteCredentialAction(**args)
+        elif name == "lockVault":
+            return LockVaultAction()
+        elif name == "checkIsVaultLocked":
+            return CheckIsLockedAction()
         elif name == "done":
             return DoneAction()
         else:
@@ -126,3 +138,17 @@ class Controller:
             self.browser.navigate(action.url)
         elif isinstance(action, DoneAction):
             pass  # Do nothing
+        elif isinstance(action, AddCredentialAction):
+            self.browser.add_credential(action.service, action.username, action.password, action.metadata, action.ttl_seconds)
+        elif isinstance(action, GetCredentialAction):
+            self.browser.get_credential(action.service)
+        elif isinstance(action, ListServicesAction):
+            self.browser.list_services()
+        elif isinstance(action, DeleteCredentialAction):    
+            self.browser.delete_credential(action.service)
+        elif isinstance(action, LockVaultAction):
+            self.browser.lock_vault()
+        elif isinstance(action, CheckIsLockedAction):
+            self.browser.check_is_vault_locked()
+        else:
+            raise ValueError(f"Unknown action type: {type(action)}")

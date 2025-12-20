@@ -28,6 +28,7 @@ class AddCredentialAction(BaseModel):
     username: str
     password: str
     metadata: Optional[dict] = None
+    ttl_seconds: Optional[int] = None
 
 class GetCredentialAction(BaseModel):
     service: str
