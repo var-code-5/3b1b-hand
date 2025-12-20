@@ -25,7 +25,16 @@ def main():
     browser = PlaywrightBrowser(headless=args.headless)
     vlm = QwenClient(args.qwen_key,base_url=args.qwen_url)
 
+    try:
+        if not vault_manager.initialize(master_password='TestPassword123!@#'):
+            raise SystemExit("Failed to initialize vault")
+            
+    except VaultError as e:
+        raise SystemExit(f"Vault error: {e}")
+
     controller = Controller(planner, browser, vlm)
+
+
     try:
         controller.run(args.intent)
     finally:
