@@ -5,15 +5,16 @@ from planner import Planner
 from browser.playwright_browser import PlaywrightBrowser
 from vlm.qwen_client import QwenClient
 from guardrails import validate_coordinates, validate_text_input, validate_action_for_step, validate_locked_values
-from schemas.actions import Action, ClickByTextAction, FillByLabelAction, ScrollAction, WaitAction, NavigateAction, DoneAction
+from schemas.actions import Action, ClickByTextAction, FillByLabelAction, ScrollAction, WaitAction, NavigateAction, DoneAction, AddCredentialAction, GetServiceFieldsAction, GetCredentialAction, ListServicesAction, DeleteCredentialAction, LockVaultAction, CheckIsLockedAction, UpdateCredentialAction
 import json
 import os
 
 class Controller:
-    def __init__(self, planner: Planner, browser: PlaywrightBrowser, vlm: QwenClient):
+    def __init__(self, planner: Planner, browser: PlaywrightBrowser, vlm: QwenClient, vault_manager):
         self.planner = planner
         self.browser = browser
         self.vlm = vlm
+        self.vault_manager = vault_manager
         self.current_step_index = 0
         self.current_action_index = 0
         self.history = []
@@ -93,6 +94,10 @@ class Controller:
             return NavigateAction(**args)
         elif name == "addCredential":
             return AddCredentialAction(**args)
+        elif name == "updateCredential":
+            return UpdateCredentialAction(**args)
+        elif name == "getServiceFields":
+            return GetServiceFieldsAction(**args)
         elif name == "getCredential":
             return GetCredentialAction(**args)
         elif name == "listServices":
@@ -149,17 +154,21 @@ class Controller:
             self.browser.navigate(action.url)
         elif isinstance(action, DoneAction):
             pass  # Do nothing
-        elif isinstance(action, AddCredentialAction):
-            self.browser.add_credential(action.service, action.username, action.password, action.metadata, action.ttl_seconds)
+        if isinstance(action, AddCredentialAction):
+            self.vault_manager.add_credential(action.data)
+        elif isinstance(action, UpdateCredentialAction):
+            self.vault_manager.update_credential(action.service, action.data)
+        elif isinstance(action, GetServiceFieldsAction):
+            self.vault_manager.get_service_fields(action.service)
         elif isinstance(action, GetCredentialAction):
-            self.browser.get_credential(action.service)
+            self.vault_manager.get_credential(action.service)
         elif isinstance(action, ListServicesAction):
-            self.browser.list_services()
+            self.vault_manager.list_services()
         elif isinstance(action, DeleteCredentialAction):    
-            self.browser.delete_credential(action.service)
+            self.vault_manager.delete_credential(action.service)
         elif isinstance(action, LockVaultAction):
-            self.browser.lock_vault()
+            self.vault_manager.lock_vault()
         elif isinstance(action, CheckIsLockedAction):
-            self.browser.check_is_vault_locked()
+            self.vault_manager.check_is_vault_locked()
         else:
             raise ValueError(f"Unknown action type: {type(action)}")

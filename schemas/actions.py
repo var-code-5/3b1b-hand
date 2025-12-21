@@ -24,11 +24,14 @@ class DoneAction(BaseModel):
     pass
 
 class AddCredentialAction(BaseModel):
+    data: dict
+
+class UpdateCredentialAction(BaseModel):
     service: str
-    username: str
-    password: str
-    metadata: Optional[dict] = None
-    ttl_seconds: Optional[int] = None
+    data: dict
+
+class GetServiceFieldsAction(BaseModel):
+    service: str
 
 class GetCredentialAction(BaseModel):
     service: str

@@ -145,6 +145,3 @@ class VaultManager:
         if self._vault is None:
             return True
         return self._vault.is_locked()
-
-
-vault_manager = VaultManager()

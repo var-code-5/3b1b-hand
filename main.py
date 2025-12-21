@@ -35,7 +35,7 @@ def main():
     except VaultError as e:
         raise SystemExit(f"Vault error: {e}")
 
-    controller = Controller(planner, browser, vlm)
+    controller = Controller(planner, browser, vlm, vault_manager)
 
 
     try:
