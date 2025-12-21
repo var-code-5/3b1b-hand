@@ -33,6 +33,8 @@ previous steps are needed when the current screen still stuck on previous step
 
 {locked_values_instruction}
 
+{action_results_instruction}
+
 Allowed actions: click_by_text(text), fill_by_label(label, text), scroll(delta), wait(ms), navigate(url), addCredential(object), updateCredential(service, object), getCredential(service), getServiceFields(service), listServices(), deleteCredential(service), lockVault(), checkIsVaultLocked(), done()
 
 Services may look like: Aadhar, Bank, Email, etc.

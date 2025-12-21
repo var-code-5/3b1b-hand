@@ -11,7 +11,7 @@ if not master:
 # Initialize/unlock vault (idempotent)
 vm.initialize(master_password=master)
 
-#Add credential (infinite TTL by default)
+# # Add credential (infinite TTL by default)
 # entry = vm.add_credential({
 #    "service":"NeoBank",
 #    "mobile":"8770762787",
@@ -20,13 +20,18 @@ vm.initialize(master_password=master)
 #    "ttl_seconds":None,  # infinite
 # })
 
-#vm.delete_credential("NeoBank")
+# vm.delete_credential("NeoBank")
+# vm.delete_credential("NeoBank")
+# vm.delete_credential("NeoBank")
+
+print(vm.list_services())
+
 
 # print("Added:", entry["service"])
 # print("expires_at:", entry.get("expires_at"))
 
-creds = vm.get_credential("NeoBank")
-print("Fetched:", creds)
+# creds = vm.get_credential("NeoBank")
+# print("Fetched:", creds)
 
 # fields = vm.get_service_fields("NeoBank")
 # print("Fields for NeoBank:", fields)

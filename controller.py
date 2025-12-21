@@ -19,6 +19,7 @@ class Controller:
         self.current_action_index = 0
         self.history = []
         self.stepsHistory = []
+        self.action_results = {}
         self.log_dir = "logs"
         os.makedirs(self.log_dir, exist_ok=True)
 
@@ -42,7 +43,7 @@ class Controller:
             history_str = "; ".join(self.history[-5:])  # last 5 actions
             step_history = "; ".join([str(s) for s in self.stepsHistory[:self.current_step_index]])
 
-            actions_data = self.vlm.call_vlm(screenshot_path, step.description , step_history, history_str, step.locked_values)
+            actions_data = self.vlm.call_vlm(screenshot_path, step.description , step_history, history_str, step.locked_values, self.action_results)
             actions = self.parse_actions(actions_data)
             
             if self.validate_actions(actions, step):
@@ -50,7 +51,9 @@ class Controller:
                 for action, action_data in zip(actions, actions_data):
                     try:
                         print(f"Executing action: {action_data}, with action object: {action} of type {type(action)}")
-                        self.execute_action(action)
+                        action_result = self.execute_action(action)
+                        if action_result is not None:
+                            self.action_results[action_data['name']] = action_result
                         self.history.append(f"{action_data['name']} with {action_data.get('arguments', {})}")
                         with open(os.path.join(self.log_dir, f"step_{self.current_step_index}.log"), "a") as f:
                             f.write(f"Screenshot: {screenshot_filename}\nAction: {action_data}\n")
@@ -143,32 +146,50 @@ class Controller:
     def execute_action(self, action: Action):
         print(f"Executing action: {action}")
         if isinstance(action, ClickByTextAction):
+            print(f"[DEBUG] Clicking by text: {action.text}")
             self.browser.click_by_text(action.text)
         elif isinstance(action, FillByLabelAction):
+            print(f"[DEBUG] Filling label '{action.label}' with text '{action.text}'")
             self.browser.fill_by_label(action.label, action.text)
         elif isinstance(action, ScrollAction):
+            print(f"[DEBUG] Scrolling by delta: {action.delta}")
             self.browser.scroll(action.delta)
         elif isinstance(action, WaitAction):
+            print(f"[DEBUG] Waiting for ms: {action.ms}")
             self.browser.wait(action.ms)
         elif isinstance(action, NavigateAction):
+            print(f"[DEBUG] Navigating to URL: {action.url}")
             self.browser.navigate(action.url)
         elif isinstance(action, DoneAction):
+            print(f"[DEBUG] Done action encountered.")
             pass  # Do nothing
-        if isinstance(action, AddCredentialAction):
+        elif isinstance(action, AddCredentialAction):
+            print(f"[DEBUG] Adding credential: {action.data}")
             self.vault_manager.add_credential(action.data)
         elif isinstance(action, UpdateCredentialAction):
+            print(f"[DEBUG] Updating credential for service '{action.service}' with data: {action.data}")
             self.vault_manager.update_credential(action.service, action.data)
         elif isinstance(action, GetServiceFieldsAction):
-            self.vault_manager.get_service_fields(action.service)
+            fields = self.vault_manager.get_service_fields(action.service)
+            print(f"[DEBUG] Service fields for '{action.service}': {fields}")
+            return fields
         elif isinstance(action, GetCredentialAction):
-            self.vault_manager.get_credential(action.service)
+            cred = self.vault_manager.get_credential(action.service)
+            print(f"[DEBUG] Credential for service '{action.service}': {cred}")
+            return cred
         elif isinstance(action, ListServicesAction):
-            self.vault_manager.list_services()
+            services = self.vault_manager.list_services()
+            print(f"[DEBUG] List of services in vault: {services}")
+            return services
         elif isinstance(action, DeleteCredentialAction):    
+            print(f"[DEBUG] Deleting credential for service '{action.service}'")
             self.vault_manager.delete_credential(action.service)
         elif isinstance(action, LockVaultAction):
+            print(f"[DEBUG] Locking vault.")
             self.vault_manager.lock_vault()
         elif isinstance(action, CheckIsLockedAction):
-            self.vault_manager.check_is_vault_locked()
+            locked = self.vault_manager.check_is_vault_locked()
+            print(f"[DEBUG] Vault locked: {locked}")
+            return locked
         else:
             raise ValueError(f"Unknown action type: {type(action)}")

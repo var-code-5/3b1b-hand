@@ -13,7 +13,7 @@ class QwenClient:
         self.api_key = api_key
         self.base_url = base_url
 
-    def call_vlm(self, image_path: str, step_description: str, step_history: str, history: str, locked_values: dict = None) -> list[dict]:
+    def call_vlm(self, image_path: str, step_description: str, step_history: str, history: str, locked_values: dict = None, action_results: dict = None) -> list[dict]:
         with open(image_path, "rb") as img_file:
             img_data = base64.b64encode(img_file.read()).decode()
 
@@ -22,12 +22,19 @@ class QwenClient:
         if locked_values:
             locked_values_str = ", ".join([f"{k}: {v}" for k, v in locked_values.items()])
             locked_values_instruction = f"CRITICAL - You MUST use these exact values (DO NOT CHANGE): {locked_values_str}"
+
+        # Format action results instruction
+        action_results_instruction = ""
+        if action_results:
+            action_results_str = ", ".join([f"{k}: {v}" for k, v in action_results.items()])
+            action_results_instruction = f"You have already retrieved the following information: {action_results_str}"
         
         prompt = SYSTEM_PROMPT.format(
             step_history=step_history,
             step_description=step_description, 
             history=history,
-            locked_values_instruction=locked_values_instruction
+            locked_values_instruction=locked_values_instruction,
+            action_results_instruction=action_results_instruction
         )
 
         payload = {
