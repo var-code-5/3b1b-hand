@@ -1,9 +1,9 @@
-from typing import Optional
+from typing import Optional, Dict, List
 import os
 from dotenv import load_dotenv
 
 from .core import EncryptedVault, VaultError
-from .config import VAULT_FILE, APP_DATA_DIR  # keep if you use APP_DATA_DIR elsewhere
+from .config import VAULT_FILE, APP_DATA_DIR
 
 load_dotenv()
 
@@ -11,7 +11,7 @@ load_dotenv()
 class VaultManager:
     """
     Singleton vault manager for the application.
-    Handles vault lifecycle: creation, unlocking, and credential access.
+    Handles vault lifecycle with unstructured JSON storage.
     """
 
     _instance: Optional["VaultManager"] = None
@@ -23,7 +23,6 @@ class VaultManager:
         return cls._instance
 
     def __init__(self):
-        """Initialize vault manager (only once)."""
         if self._vault is not None:
             return
 
@@ -32,18 +31,14 @@ class VaultManager:
         Initialize vault: create if doesn't exist, unlock if does.
         
         Args:
-            master_password: Master password. If None, try to get from:
-                1. VAULT_MASTER_PASSWORD env var
-                2. .env file
-                3. Prompt user (if interactive)
+            master_password: Master password. If None, get from VAULT_MASTER_PASSWORD env var
         
         Returns:
-            True if initialization successful, False otherwise
+            True if initialization successful
         """
         if self._vault is not None:
             return True
 
-        # Get master password
         if master_password is None:
             master_password = os.environ.get("VAULT_MASTER_PASSWORD")
 
@@ -72,33 +67,81 @@ class VaultManager:
             raise VaultError("Vault not initialized. Call initialize() first.")
         return self._vault
 
-    def add_credential(
-        self,
-        service: str,
-        username: str,
-        password: str,
-        metadata: Optional[dict] = None,
-        ttl_seconds: Optional[int] = None,
-    ) -> dict:
-        return self.get_vault().add_credential(service, username, password, metadata, ttl_seconds)
+    def add_credential(self, entry_data: Dict) -> Dict:
+        """
+        Add unstructured credential entry.
+        
+        Args:
+            entry_data: Dict with arbitrary fields. Must include non-empty 'service' field.
+                       Optional 'ttl_seconds' for expiration.
+        
+        Example:
+            vm.add_credential({
+                "service": "github",
+                "username": "user",
+                "token": "ghp_xyz",
+                "scopes": ["repo", "user"],
+                "ttl_seconds": 3600
+            })
+        """
+        return self.get_vault().add_credential(entry_data)
 
-    def get_credential(self, service: str, *, purge_if_expired: bool = True) -> Optional[dict]:
+    def update_credential(self, service: str, updates: Dict) -> Optional[Dict]:
+        """
+        Update existing credential by merging new fields.
+        
+        Args:
+            service: Service name
+            updates: Dict of fields to merge. Can include 'ttl_seconds'.
+        
+        Returns:
+            Updated entry or None if not found/expired
+        
+        Example:
+            vm.update_credential("github", {
+                "token": "ghp_new",
+                "updated_note": "rotated token",
+                "ttl_seconds": 7200
+            })
+        """
+        return self.get_vault().update_credential(service, updates)
+
+    def get_credential(self, service: str, *, purge_if_expired: bool = True) -> Optional[Dict]:
+        """Get credential entry by service name."""
         return self.get_vault().get_credential(service, purge_if_expired=purge_if_expired)
 
-    def list_services(self, *, include_expired: bool = False) -> list:
+    def get_service_fields(self, service: str) -> Optional[List[str]]:
+        """
+        Get list of field names for a service (without values).
+        
+        Returns:
+            List of field names, or None if service not found/expired
+        
+        Example:
+            fields = vm.get_service_fields("github")
+            # ['service', 'username', 'token', 'scopes', 'created_at', 'updated_at']
+        """
+        return self.get_vault().get_service_fields(service)
+
+    def list_services(self, *, include_expired: bool = False) -> List[str]:
+        """List all service names."""
         return self.get_vault().list_services(include_expired=include_expired)
 
     def delete_credential(self, service: str) -> bool:
+        """Delete a credential by service name."""
         return self.get_vault().delete_credential(service)
 
     def purge_expired(self) -> int:
+        """Purge all expired entries; returns count removed."""
         return self.get_vault().purge_expired()
 
     def lock(self):
+        """Lock the vault (clear from memory)."""
         if self._vault:
             self._vault.lock()
 
     def is_locked(self) -> bool:
+        """Check if vault is locked."""
         if self._vault is None:
             return True
         return self._vault.is_locked()
