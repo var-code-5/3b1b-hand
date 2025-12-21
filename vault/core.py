@@ -43,8 +43,8 @@ def _iso_to_dt(s: str) -> datetime:
 
 class EncryptedVault:
     """
-    Secure credential vault bundled with the application.
-    Stores credentials in app's data directory with AES-256-GCM encryption.
+    Secure credential vault with unstructured JSON storage.
+    Each entry is an arbitrary dict with mandatory 'service' field.
     """
 
     def __init__(self, vault_path: Path, master_password: str):
@@ -54,7 +54,7 @@ class EncryptedVault:
         Args:
             vault_path: Path to vault.enc file (usually APP_DATA_DIR / "vault.enc")
             master_password: Master password for encryption/decryption
-        """       
+        """ 
         self.vault_path = vault_path
         self.master_password = master_password
         self.master_key = None
@@ -81,11 +81,12 @@ class EncryptedVault:
         return key, salt
 
     def create(self) -> bool:
+        """Create a new encrypted vault file."""
         try:
             self.master_key, salt = self._derive_key()
 
             vault_content = {
-                "version": 2,  # bump version (older vaults still load)
+                "version": 2,
                 "entries": [],
                 "metadata": {
                     "created": _dt_to_iso(_now_utc()),
@@ -134,7 +135,7 @@ class EncryptedVault:
 
             self.vault_data = json.loads(plaintext.decode())
 
-            # Backward compatibility: ensure expected keys exist
+            # Backward compatibility
             self.vault_data.setdefault("version", 1)
             self.vault_data.setdefault("entries", [])
             self.vault_data.setdefault("metadata", {})
@@ -158,7 +159,6 @@ class EncryptedVault:
             if self._is_locked or self.vault_data is None:
                 raise VaultError("Vault is locked; cannot save")
 
-            # Update last_modified BEFORE encrypting
             self.vault_data.setdefault("metadata", {})
             self.vault_data["metadata"]["last_modified"] = _dt_to_iso(_now_utc())
 
@@ -184,6 +184,7 @@ class EncryptedVault:
             raise VaultError(f"Failed to save vault: {e}")
 
     def _is_entry_expired(self, entry: Dict, now: Optional[datetime] = None) -> bool:
+        """Check if entry has expired based on expires_at field."""
         now = now or _now_utc()
         expires_at = entry.get("expires_at", None)
         if not expires_at:
@@ -191,7 +192,6 @@ class EncryptedVault:
         try:
             exp_dt = _iso_to_dt(expires_at)
         except Exception:
-            # If malformed expires_at exists, treat as error (safer) or expired.
             raise VaultError(f"Malformed expires_at for service '{entry.get('service')}': {expires_at}")
         return now >= exp_dt
 
@@ -202,56 +202,102 @@ class EncryptedVault:
 
         now = _now_utc()
         before = len(self.vault_data["entries"])
-        self.vault_data["entries"] = [e for e in self.vault_data["entries"] if not self._is_entry_expired(e, now)]
+        self.vault_data["entries"] = [
+            e for e in self.vault_data["entries"]
+            if not self._is_entry_expired(e, now)
+        ]
         removed = before - len(self.vault_data["entries"])
         if removed > 0:
             self.save()
         return removed
 
-    def add_credential(
-        self,
-        service: str,
-        username: str,
-        password: str,
-        metadata: Optional[Dict] = None,
-        ttl_seconds: Optional[int] = None,
-    ) -> Dict:
+    def add_credential(self, entry_data: Dict) -> Dict:
         """
-        Add a credential entry.
+        Add an unstructured credential entry.
         
         Args:
-            service: Service/app name (e.g., 'openai_api', 'github_token')
-            username: Username or key identifier
-            password: Password or secret token
-            metadata: Optional additional metadata
-
-        ttl_seconds:
-          - None => infinite
-          - int > 0 => expires now + ttl_seconds
-          - 0 or negative => treated as already-expired (will be purged on read)
+            entry_data: Dictionary with arbitrary fields. MUST contain non-empty 'service' field.
+                       Can optionally include 'ttl_seconds' for expiration.
+        
+        Returns:
+            The stored entry (with added timestamps and computed expires_at if ttl_seconds provided)
+        
+        Raises:
+            VaultError: If vault is locked or 'service' field is missing/empty
         """
         if self._is_locked:
             raise VaultError("Vault is locked")
 
-        now = _now_utc()
-        expires_at: Optional[str] = None
-        if ttl_seconds is not None:
-            expires_at = _dt_to_iso(now + timedelta(seconds=int(ttl_seconds)))
+        # Validate service field
+        service = entry_data.get("service", "").strip()
+        if not service:
+            raise VaultError("Entry must have non-empty 'service' field")
 
-        entry = {
-            "id": len(self.vault_data["entries"]) + 1,
-            "service": service,
-            "username": username,
-            "password": password,
-            "metadata": metadata or {},
-            "expires_at": expires_at,           # NEW FIELD
-            "created_at": _dt_to_iso(now),
-            "updated_at": _dt_to_iso(now),
-        }
+        # Make a copy to avoid mutating caller's dict
+        entry = dict(entry_data)
+        
+        now = _now_utc()
+        
+        # Handle TTL if provided
+        ttl_seconds = entry.pop("ttl_seconds", None)
+        if ttl_seconds is not None:
+            entry["expires_at"] = _dt_to_iso(now + timedelta(seconds=int(ttl_seconds)))
+        
+        # Add timestamps
+        entry.setdefault("created_at", _dt_to_iso(now))
+        entry["updated_at"] = _dt_to_iso(now)
 
         self.vault_data["entries"].append(entry)
         self.save()
         return entry
+
+    def update_credential(self, service: str, updates: Dict) -> Optional[Dict]:
+        """
+        Update an existing credential by merging new fields.
+        
+        Args:
+            service: Service name to find and update
+            updates: Dict of fields to merge into existing entry.
+                    Can include 'ttl_seconds' to set new expiration.
+        
+        Returns:
+            Updated entry dict, or None if service not found or expired
+        
+        Raises:
+            VaultError: If vault is locked or trying to change 'service' field
+        """
+        if self._is_locked:
+            raise VaultError("Vault is locked")
+
+        if "service" in updates and updates["service"].strip().lower() != service.strip().lower():
+            raise VaultError("Cannot change 'service' field via update_credential")
+
+        now = _now_utc()
+        
+        for entry in self.vault_data["entries"]:
+            if entry.get("service", "").lower() != service.lower():
+                continue
+
+            # Check expiration
+            if self._is_entry_expired(entry, now):
+                return None
+
+            # Make a copy of updates to avoid mutating caller's dict
+            updates_copy = dict(updates)
+            
+            # Handle TTL if provided
+            ttl_seconds = updates_copy.pop("ttl_seconds", None)
+            if ttl_seconds is not None:
+                updates_copy["expires_at"] = _dt_to_iso(now + timedelta(seconds=int(ttl_seconds)))
+            
+            # Merge updates into entry
+            entry.update(updates_copy)
+            entry["updated_at"] = _dt_to_iso(now)
+            
+            self.save()
+            return entry
+
+        return None
 
     def get_credential(self, service: str, *, purge_if_expired: bool = True) -> Optional[Dict]:
         """Retrieve a credential by service name."""
@@ -274,7 +320,33 @@ class EncryptedVault:
 
         return None
 
+    def get_service_fields(self, service: str) -> Optional[List[str]]:
+        """
+        Get list of field names (keys) for a service WITHOUT returning the values.
+        
+        Args:
+            service: Service name to query
+        
+        Returns:
+            List of field names, or None if service not found or expired
+        """
+        if self._is_locked:
+            raise VaultError("Vault is locked")
+
+        now = _now_utc()
+        for entry in self.vault_data["entries"]:
+            if entry.get("service", "").lower() != service.lower():
+                continue
+
+            if self._is_entry_expired(entry, now):
+                return None
+
+            return list(entry.keys())
+
+        return None
+
     def list_services(self, *, include_expired: bool = False) -> List[str]:
+        """List all service names."""
         if self._is_locked:
             return []
 
@@ -282,7 +354,7 @@ class EncryptedVault:
         services: List[str] = []
         for e in self.vault_data["entries"]:
             if include_expired or not self._is_entry_expired(e, now):
-                services.append(e.get("service"))
+                services.append(e.get("service", ""))
         return services
 
     def delete_credential(self, service: str) -> bool:
